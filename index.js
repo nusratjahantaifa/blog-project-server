@@ -70,12 +70,8 @@ app.post("/blogs", verifyToken, async (req, res) => {
 });
 
 // GET ALL BLOGS
-app.get("/blogs", async (req, res) => {
-  const result = await blogCollection
-    .find()
-    .sort({ createdAt: -1 })
-    .toArray();
-
+app.get('/blogs', async (req, res) => {
+  const result = await blogCollection.find().toArray();
   res.send(result);
 });
 
