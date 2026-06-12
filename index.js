@@ -25,6 +25,7 @@ const verifyToken = (req, res, next) => {
   });
 };
 const app = express();
+// const cors = require("cors");
 app.use(cors({
   origin: ["http://localhost:5173"], 
   credentials: true
@@ -61,7 +62,7 @@ run();
 // CREATE BLOG
 app.post("/blogs", verifyToken, async (req, res) => {
   const blog = req.body;
-
+ blog.email = req.user.email;
   blog.createdAt = new Date();
   blog.email = req.user.email; //important
 
@@ -164,6 +165,8 @@ app.delete("/wishlist/:id", verifyToken, async (req, res) => {
   res.send(result);
 });
 //===================ADD COMMENT==================
+
+
 app.post("/comments", verifyToken, async (req, res) => {
   try {
     const comment = req.body;
@@ -171,8 +174,8 @@ app.post("/comments", verifyToken, async (req, res) => {
     if (!comment.blogId || !comment.text) {
       return res.status(400).send({ message: "Missing fields" });
     }
-
-    comment.email = req.user.email; // 🔐 secure
+  comment.blogId = new ObjectId(comment.blogId);
+    comment.email = req.user.email; 
     comment.createdAt = new Date();
 
     const result = await commentCollection.insertOne(comment);
@@ -185,10 +188,13 @@ app.post("/comments", verifyToken, async (req, res) => {
 //================GET COMMENTS BY BLOG ID=====================
 app.get("/comments/:blogId", async (req, res) => {
   try {
+    const { ObjectId } = require("mongodb");
+
+    
     const blogId = req.params.blogId;
 
     const result = await commentCollection
-      .find({ blogId: blogId })
+      .find({ blogId: new ObjectId(blogId) })
       .sort({ createdAt: -1 })
       .toArray();
 
