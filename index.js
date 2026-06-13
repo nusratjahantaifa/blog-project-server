@@ -5,7 +5,9 @@ import { MongoClient, ObjectId } from "mongodb";
 import jwt from "jsonwebtoken";
 dotenv.config();
 
-//======MIDDLEWARE======
+const app = express();
+
+// ====== MIDDLEWARE ======
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -24,22 +26,25 @@ const verifyToken = (req, res, next) => {
     next();
   });
 };
-const app = express();
-// const cors = require("cors");
+
+//  Added placeholder for production frontend link
 app.use(cors({
-  origin: ["http://localhost:5173"], 
+  origin: [
+    "http://localhost:5173", 
+       process.env.CLIENT_URL//Frontend live link
+  ], 
   credentials: true
 }));
 
-
 app.use(express.json());
 
-// ✅ Use only env
+// Use only env
 const client = new MongoClient(process.env.MONGO_URI);
 
 let blogCollection;
 let wishlistCollection;
 let commentCollection;
+
 async function run() {
   try {
     await client.connect();
@@ -48,10 +53,11 @@ async function run() {
     blogCollection = db.collection("blogs");
     wishlistCollection = db.collection("wishlist");
     commentCollection = db.collection("comments");
-   await blogCollection.createIndex({ title: "text" });
-    console.log("MongoDB connected");
+    
+    await blogCollection.createIndex({ title: "text" });
+    console.log("MongoDB connected successfully");
   } catch (error) {
-    console.log(error);
+    console.log("MongoDB connection error:", error);
   }
 }
 run();
@@ -62,31 +68,29 @@ run();
 // CREATE BLOG
 app.post("/blogs", verifyToken, async (req, res) => {
   const blog = req.body;
- blog.email = req.user.email;
   blog.createdAt = new Date();
-  blog.email = req.user.email; //important
+  blog.email = req.user.email; 
 
   const result = await blogCollection.insertOne(blog);
   res.send(result);
 });
 
-// GET ALL BLOGS
+// GET ALL BLOGS 
 app.get('/blogs', async (req, res) => {
-  const result = await blogCollection.find().toArray();
+  const result = await blogCollection.find().sort({ createdAt: -1 }).toArray();
   res.send(result);
 });
 
 // GET SINGLE BLOG
 app.get("/blogs/:id", async (req, res) => {
   const id = req.params.id;
-
   const result = await blogCollection.findOne({
     _id: new ObjectId(id),
   });
-
   res.send(result);
 });
-//  UPDATE BLOG
+
+// UPDATE BLOG
 app.put("/blogs/:id", verifyToken, async (req, res) => {
   const id = req.params.id;
   const updatedData = req.body;
@@ -109,25 +113,26 @@ app.put("/blogs/:id", verifyToken, async (req, res) => {
 
 // ================= WISHLIST API =================
 
-// ADD TO WISHLIST
-app.post("/wishlist", async (req, res) => {
+// ADD TO WISHLIST 
+app.post("/wishlist", verifyToken, async (req, res) => {
   try {
-    const { blogId, email } = req.body;
+    const { blogId } = req.body;
+    const email = req.user.email; 
 
-    // check duplicate
     const existing = await wishlistCollection.findOne({ blogId, email });
 
     if (existing) {
       return res.send({ message: "Already added" });
     }
 
-    const result = await wishlistCollection.insertOne(req.body);
+    const result = await wishlistCollection.insertOne({ ...req.body, email });
     res.send({ insertedId: result.insertedId });
 
   } catch (error) {
     res.status(500).send({ message: "Failed to add wishlist" });
   }
 });
+
 // GET USER WISHLIST
 app.get("/wishlist/:email", verifyToken, async (req, res) => {
   if (req.user.email !== req.params.email) {
@@ -153,7 +158,6 @@ app.delete("/wishlist/:id", verifyToken, async (req, res) => {
     return res.status(404).send({ message: "Not found" });
   }
 
-  // 🔐 check owner
   if (item.email !== req.user.email) {
     return res.status(403).send({ message: "Forbidden" });
   }
@@ -164,9 +168,8 @@ app.delete("/wishlist/:id", verifyToken, async (req, res) => {
 
   res.send(result);
 });
-//===================ADD COMMENT==================
 
-
+// ================= ADD COMMENT =================
 app.post("/comments", verifyToken, async (req, res) => {
   try {
     const comment = req.body;
@@ -174,23 +177,21 @@ app.post("/comments", verifyToken, async (req, res) => {
     if (!comment.blogId || !comment.text) {
       return res.status(400).send({ message: "Missing fields" });
     }
-  comment.blogId = new ObjectId(comment.blogId);
+    comment.blogId = new ObjectId(comment.blogId);
     comment.email = req.user.email; 
     comment.createdAt = new Date();
 
     const result = await commentCollection.insertOne(comment);
-
     res.send(result);
   } catch (error) {
     res.status(500).send({ message: "Failed to add comment" });
   }
 });
-//================GET COMMENTS BY BLOG ID=====================
+
+// ================= GET COMMENTS BY BLOG ID =================
 app.get("/comments/:blogId", async (req, res) => {
   try {
-    const { ObjectId } = require("mongodb");
-
-    
+    // Removed the crashing require() statement completely
     const blogId = req.params.blogId;
 
     const result = await commentCollection
@@ -203,33 +204,30 @@ app.get("/comments/:blogId", async (req, res) => {
     res.status(500).send({ message: "Failed to fetch comments" });
   }
 });
-//================CREATE JWT ROUTE==============
+
+// ================= CREATE JWT ROUTE =================
 app.post("/jwt", (req, res) => {
   const user = req.body;
-
   const token = jwt.sign(user, process.env.JWT_SECRET, {
     expiresIn: "1h",
   });
-
   res.send({ token });
 });
 
+// ================= SEARCH API =================
 app.get("/blogs/search/:text", async (req, res) => {
   const text = req.params.text;
-
   const result = await blogCollection
     .find({ $text: { $search: text } })
     .toArray();
-
   res.send(result);
 });
 
 // ================= ROOT =================
-
 app.get("/", (req, res) => {
-  res.send("Server running");
+  res.send("Server running cleanly!");
 });
 
-app.listen(5000, () => console.log("Server running on port 5000"));
-
-
+// Dynamic Port handling added
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running safely on port ${PORT}`));
