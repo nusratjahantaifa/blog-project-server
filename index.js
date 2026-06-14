@@ -26,15 +26,17 @@ const verifyToken = (req, res, next) => {
     next();
   });
 };
-
-//  Added placeholder for production frontend link
 app.use(cors({
-  origin: [
-    "http://localhost:5173", 
-       process.env.CLIENT_URL//Frontend live link
-  ], 
+  origin: "https://mern-firebase-project.netlify.app",
   credentials: true
 }));
+// app.use(cors({
+//   origin: [
+//     "http://localhost:5173",
+//     ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : [])
+//   ],
+//   credentials: true
+// }));
 
 app.use(express.json());
 
