@@ -8,6 +8,7 @@ dotenv.config();
 const app = express();
 
 // ====== MIDDLEWARE ======
+// ====== MIDDLEWARE & CORS ======
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -26,19 +27,24 @@ const verifyToken = (req, res, next) => {
     next();
   });
 };
+
+// ✅ Dynamic CORS Array setup
+const allowedOrigins = [
+  "http://localhost:5173", // Allows local development testing
+];
+
+// Automatically appends your live Netlify domain if it exists in Render's dashboard
+if (process.env.CLIENT_URL) {
+  allowedOrigins.push(process.env.CLIENT_URL);
+}
+
 app.use(cors({
-  origin: "https://mern-firebase-project.netlify.app",
+  origin: allowedOrigins,
   credentials: true
 }));
-// app.use(cors({
-//   origin: [
-//     "http://localhost:5173",
-//     ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : [])
-//   ],
-//   credentials: true
-// }));
 
 app.use(express.json());
+
 
 // Use only env
 const client = new MongoClient(process.env.MONGO_URI);
